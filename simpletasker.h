@@ -11,7 +11,7 @@
 #include "type_traits"
 #include <variant>
 #include <QTimer>
-constexpr static bool dbgTasker{false};
+constexpr static bool dbgTasker{true};
 
 template <class T> using Shp = QSharedPointer<T>;
 class ParallelCluster{
@@ -82,6 +82,21 @@ public:
         QMutexLocker ml(&taskListMutex);
         coherentTaskList << ParallelCluster{{list}, name};
         coherentTasksCount++;
+    }
+    void addParallel(ParallelCluster cluster){
+        QMutexLocker ml(&taskListMutex);
+        coherentTaskList << cluster;
+        coherentTasksCount++;
+    }
+    void add(CoherentTask coherentTask){
+        QMutexLocker ml(&taskListMutex);
+        coherentTaskList << coherentTask;
+        coherentTasksCount++;
+    }
+    void add(QList<CoherentTask> list){
+        QMutexLocker ml(&taskListMutex);
+        coherentTaskList << list;
+        coherentTasksCount += list.size();
     }
     template <class TShpTask> void add(const Shp<TShpTask>& t){
         QMutexLocker ml(&taskListMutex);

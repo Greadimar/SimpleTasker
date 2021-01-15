@@ -53,7 +53,7 @@ void SimpleTasker::checkForNextTask()
     }
     bool readyForNext{false};
     CoherentTask& task = coherentTaskList[curTaskIdx];
-    std::visit([&readyForNext](auto&& arg){     //clang is wrong!
+    std::visit([&readyForNext](auto&& arg){
         using T = std::decay_t<decltype (arg)>;
         if constexpr (std::is_same_v<T, ParallelCluster>){
             if constexpr(dbgTasker) qDebug() << "partask checkReady";

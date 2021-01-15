@@ -3,13 +3,13 @@
 int CounterTasks::counter{0};
 SimpleTask::SimpleTask(const QString &name): name(name)
 {
-   if constexpr (dbgTasks) qDebug() << Q_FUNC_INFO << ++CounterTasks::counter;
+   if constexpr (dbgTasks) qDebug() << Q_FUNC_INFO << ++CounterTasks::counter << name;
 
 }
 
 SimpleTask::~SimpleTask()
 {
-   if constexpr (dbgTasks) qDebug() << Q_FUNC_INFO <<  --CounterTasks::counter;
+   if constexpr (dbgTasks) qDebug() << Q_FUNC_INFO <<  --CounterTasks::counter << name;
 
 }
 
@@ -71,7 +71,7 @@ QList<TaskLog> SimpleTask::getServiceMsgs() const
 
 
 
-PauseTask::PauseTask(const std::chrono::milliseconds &pausetime, const QObject &contextForTimer, const QString &name):
+PauseTask::PauseTask(const std::chrono::milliseconds &pausetime, QObject &contextForTimer, const QString &name):
     SimpleReplyTask<>(name), pausetime(pausetime), context(contextForTimer)
 {
 
