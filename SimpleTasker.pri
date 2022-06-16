@@ -1,13 +1,27 @@
+!contains(DEFINES, __SIMPLETASKER__) {
+DEFINES += __SIMPLETASKER__
+
+CONFIG += c++17 #switch to c++14 if you don't need if constexpr
+
 HEADERS += \
+    $$PWD/pausetask.h \
+    $$PWD/simplereplytask.h \
+    $$PWD/simpletask.h \
     $$PWD/simpletasker.h \
-    $$PWD/simpletasks.h
-
-
-contains(DEFINES, BASENET_EXISTS){
-HEADERS +=
-}
+    $$PWD/taskcluster.h \
+    $$PWD/tasks.h \
+    $$PWD/tasktools.h
 
 SOURCES += \
+    $$PWD/pausetask.cpp \
+    $$PWD/simplereplytask.cpp \
+    $$PWD/simpletask.cpp \
     $$PWD/simpletasker.cpp \
-    $$PWD/simpletasks.cpp
+    $$PWD/taskcluster.cpp
+}
 
+HEADERS += \
+    $$PWD/taskplanner.h
+
+SOURCES += \
+    $$PWD/taskplanner.cpp

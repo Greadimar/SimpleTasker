@@ -1,6 +1,6 @@
 # This file is used to ignore files which are generated
 # ----------------------------------------------------------------------------
-
+Example/build*
 *~
 *.autosave
 *.a
@@ -71,7 +71,3 @@ Thumbs.db
 *.dll
 *.exe
 
-
-Example/build-TaskerWithReplies-Desktop_Qt_5_12_10_MinGW_64_bit-Debug/
-
-Example/build-TaskerWithReplies-Desktop_Qt_5_12_10_MinGW_64_bit-Release/

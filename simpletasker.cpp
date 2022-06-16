@@ -1,85 +1,156 @@
 #include "simpletasker.h"
 #include <QDebug>
+#include <cmath>
 #include <QThread>
+using namespace ST;
 SimpleTasker::SimpleTasker(QObject* parent): QObject(parent)
 {
 }
 
 void SimpleTasker::run()
 {
-    if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO << "run" << QThread::currentThreadId() << coherentTaskList.count();
-    if (!timer){
-            qDebug() <<Q_FUNC_INFO <<"tim"<< QThread::currentThreadId();
-        timer = new QTimer(this);
-        timer->setTimerType(Qt::PreciseTimer);
-        timer->setSingleShot(true);
-        connect(timer, &QTimer::timeout, this, &SimpleTasker::checkForNextTask);
+    if (!mStartTask){
+        emit infoMsg("Task branch is empty. Work stopped");
+        return;
     }
-    if (taskerState == TaskerState::working) return;
-    QMutexLocker ml(&taskListMutex);
-    if (curTaskIdx == coherentTaskList.size()){
-        taskerState = TaskerState::idle;
-        ml.unlock();
-        emit finished();
-    }
-    else{
-        taskerState = TaskerState::working;
-        CoherentTask& task = coherentTaskList[curTaskIdx];
-        runCoherentTask(task);
-    }
+    toRun();
 }
 
+void SimpleTasker::runWithCommonInterval(std::chrono::milliseconds interval)
+{
+    if (!mStartTask){
+        emit infoMsg("Task branch is empty. Work stopped");
+        return;
+    }
+    this->commonInterval = interval;
+    toRun<true>();
+}
+
+template<bool delay>
+void SimpleTasker::toRun()
+{
+    if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO << "run" << QThread::currentThreadId();
+    lastPrgSent = 0;
+    if (!timer){
+        timer = new QTimer(this);
+        timer->setTimerType(Qt::PreciseTimer);
+        auto c = connect(timer, &QTimer::timeout, this, [=](){
+            checkForNextTask<delay>();
+        });
+        connectionTimerCheckNext = QSharedPointer<QMetaObject::Connection>::create(c);
+    }
+    if (taskerState == TaskerState::working) return;
+    taskerState = TaskerState::working;
+    mCurTask = mStartTask;
+    runCoherentTask<delay>(mCurTask);
+    timer->start(checkNextTimeout);
+
+}
+
+
 void SimpleTasker::stop(){
-    qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
+    if constexpr(dbgTasker) qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
     taskerState = TaskerState::idle;
+    if (timer) timer->stop();
+    emit sendPrg(0);
+    emit canceled();
+
+}
+void SimpleTasker::toPause()
+{
+    if constexpr(dbgTasker) qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
     if (timer) timer->stop();
 }
 
-
-void SimpleTasker::runCoherentTask(CoherentTask& task)
+void SimpleTasker::toContinue()
 {
-   // if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO <<"runcoh"<< QThread::currentThreadId();
-    std::visit(VisitorRunner{},task);
-    if (!timer->isActive()) timer->start(checkNextTimeout);
+    if constexpr(dbgTasker) qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
+    if (timer) timer->start(checkNextTimeout);
 }
 
-void SimpleTasker::checkForNextTask()
+SimpleTasker::TaskerState SimpleTasker::getTaskerState() const
 {
-   // if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO <<"checkFN"<< QThread::currentThreadId() << coherentTaskList.size();
-    timer->stop();
-    if (taskerState == TaskerState::idle || coherentTaskList.size() == 0){
-        emit finished();
+    return taskerState;
+}
+
+int SimpleTasker::getBranchCount() const
+{
+    return branchCount;
+}
+
+int SimpleTasker::getAllCount() const
+{
+    return allCount;
+}
+
+int SimpleTasker::getTaskPassed() const
+{
+    return taskPassed;
+}
+
+void SimpleTasker::toFinish(){
+    taskerState = TaskerState::idle;
+    if (timer) timer->stop();
+    emit finished();
+
+}
+
+
+
+template <bool interval>
+void SimpleTasker::runCoherentTask(ShpSimpleTask &task)
+{
+    if constexpr (interval){
+        timePointLastCheck = std::chrono::system_clock::now();
+    }
+    if (!task){
+        toFinish();
         return;
     }
-    bool readyForNext{false};
-    CoherentTask& task = coherentTaskList[curTaskIdx];
-    std::visit([&readyForNext](auto&& arg){
-        using T = std::decay_t<decltype (arg)>;
-        if constexpr (std::is_same_v<T, ParallelCluster>){
-            if constexpr(dbgTasker) qDebug() << "partask checkReady";
-            readyForNext = arg.checkForReady();
-        }
-        else if constexpr (std::is_same_v<T, Shp<SimpleTask>>){
-            if constexpr(dbgTasker) qDebug() << "cohtask checkReady";
-            if (arg->getState() != TaskState::waiting) readyForNext = true;
-        }
-        else{
-            qDebug()<<Q_FUNC_INFO << "wrong type";
-        }
-    }, task);
+    //emit infoMsg("Задача: %1")
+    if (!task->logEmitter) task->logEmitter = [=](const QString& msg){
+        emit infoMsg(msg);
+    };
+    taskPassed++;
+    uint curPrg = std::ceil((taskPassed / static_cast<double>(branchCount)) * 100);
+    if (curPrg > lastPrgSent) lastPrgSent = curPrg;
+    if (lastPrgSent > 100) lastPrgSent = 100;
+    emit sendPrg(curPrg);
+    task->run();
 
-    if (readyForNext){
-        curTaskIdx++;
-        if (curTaskIdx == coherentTaskList.size()){
-            taskerState = TaskerState::idle;
-            emit finished();
-        }
-        else{
-            CoherentTask& task = coherentTaskList[curTaskIdx];
-            runCoherentTask(task);
-        }
-    }
-    else{
-            timer->start(checkNextTimeout);
-    }
+    //if (!timer->isActive()) timer->start(checkNextTimeout);
 }
+
+template <bool interval>
+void SimpleTasker::checkForNextTask()
+{
+    if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO <<"checkFN"<< QThread::currentThreadId() << QTime::currentTime();
+    if constexpr (interval){
+        auto now = std::chrono::system_clock::now();
+        if (timePointLastCheck + std::chrono::milliseconds(commonInterval) > now){
+            return;
+        }
+    }
+    if (!mCurTask){
+        qCritical() << "Current task in SimpleTasker is null. Aborting";
+        taskerState = TaskerState::idle;
+        return;
+    }
+    if (taskerState == TaskerState::idle){
+        return;
+    }
+    bool readyForNext = mCurTask->checkForReady();
+    if (!readyForNext) {
+        return;
+    }
+    finishedTaskSet << mCurTask;
+    if (!mCurTask->nextTask){
+        toFinish();
+        return;
+    }
+    mCurTask = mCurTask->nextTask;
+    //double curPrg = 100 * (curTaskIdx/static_cast<double>(coherentTaskList.size()));
+
+    runCoherentTask<interval>(mCurTask);
+}
+
