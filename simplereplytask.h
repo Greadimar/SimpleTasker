@@ -7,11 +7,14 @@ template <class ...TReply> class SimpleReplyTask: public SimpleTask, public QEna
 
 public:
     static QSharedPointer<SimpleReplyTask<TReply...>> create(const QString& name){
+        //qDebug() << "crate replyt";
         return QSharedPointer<EnableMakeQShared<SimpleReplyTask<TReply...>>>::create(name);}
     //    template <typename ...TArgs> static QSharedPointer<SimpleReplyTask<TReply...>> createCustom(const QString& name, TArgs&&...){
     //        qDebug() << "defaultCustom";
     //    }
-    virtual ~SimpleReplyTask() override{}
+    virtual ~SimpleReplyTask() override{
+
+    }
 
 public:
     std::function<void(TReply&&...)> onSuccess;
@@ -21,46 +24,29 @@ public:
     bool run() override {
         mStartTime = std::chrono::system_clock::now();
         if (!runner){
-            onLog(QString("Task: ") + this->name + QString(" - can't be launched, nothing to execute"));
+            onLog(QStringLiteral("Task: ") + this->mName + QStringLiteral(" - can't be launched, nothing to execute"));
             mEndTime = mStartTime = std::chrono::system_clock::now();
-            taskState = TaskState::fail;
+            mTaskState = TaskState::fail;
             return false;
         }
         if (mHasDelay){
-            if (!mTimerContext){
-                onLog(QString("Task :%1 can't be launched with interval, no qobject context for timer"));
-                return false;
-            }
-            taskState = TaskState::waiting;
-            QTimer::singleShot(mTimeToDelay, mTimerContext, runner);
-            onLog(QString("Task: ") +
-                  this->name +
-                  QString(" - launched with delay %1 msec").arg(mTimeToDelay.count()));
-            return true;
+            return runWithDelay();
         }
-        taskState = TaskState::waiting;
+        mTaskState = TaskState::waiting;
         runner();
-        onLog(QString("Task: ") + this->name + QString(" - launched"));
-        if (!onSuccess && !onFail) taskState = TaskState::success;
+        onLog(QStringLiteral("Task: ") + this->mName + QStringLiteral(" - launched"));
+        if (!onSuccess && !onFail) mTaskState = TaskState::success;
         return true;
     };
 
+    void makeRunner(QWeakPointer<SimpleReplyTask<TReply...>> wp, std::function<void()> customRunner){
+        this->runner = [wp, customRunner](){if (!wp) return; customRunner();};
+    }
     int getMaximumTries() const {return maximumTries;}
     void setMaximumTries(int value){ maximumTries = value;}
     int getTries() const {return tries;}
 
-    //get wrapper around success with logging
-    auto getOnReply() {
-        auto shared = QEnableSharedFromThis<SimpleReplyTask<TReply...>>::sharedFromThis();
-        auto weak = shared.toWeakRef();
-        return [weak](auto ...var) mutable{
-            if (!weak){
-                qCritical() << "Current ReplyTask was deleted before recieving the answer";
-                return;
-            }
-            onReply(std::move(weak.toStrongRef()), std::forward<decltype(var)>(var)...);
-        };
-    }
+
      //get wrapper around success with logging
     auto getOnSuccess(){
         auto shared = QEnableSharedFromThis<SimpleReplyTask<TReply...>>::sharedFromThis();
@@ -71,12 +57,13 @@ public:
                 return;
             }
             auto shpRtr = weak.toStrongRef();
-            shpRtr->onLog(QString("Task: ") + shpRtr->name + QString(" - complete"));
-            shpRtr->taskState = TaskState::success;
+            shpRtr->onLog("Task: " + shpRtr->mName + " - executed");
+            shpRtr->mTaskState = TaskState::success;
             if (shpRtr->onSuccess) shpRtr->onSuccess(std::forward<TReply>(var)...);
              shpRtr->mEndTime = std::chrono::system_clock::now();
         };
     }
+    //get wrapper around success with logging and binded arguments
     template <typename ...BindingArgs>
     auto getOnSuccessWithBindedArgs(BindingArgs&&... bindingArgs) const{
         auto shared = QEnableSharedFromThis<SimpleReplyTask<TReply...>>::sharedFromThis();
@@ -100,15 +87,27 @@ public:
             }
             auto shp = weak.toStrongRef();
             shp->tries++;
-            shp->onLog(QString("Task: ") + shp->name + QString(" - no answer %1/%2").arg(shp->tries).arg(shp->getMaximumTries()));
-            if (shp->tries < shp->maximumTries){
+            shp->onLog(QStringLiteral("Task: ") + shp->mName + QString(" - no answer %1/%2").arg(shp->tries).arg(shp->getMaximumTries()));
+            if (shp->tries < shp->maximumTries && shp->mTaskState == TaskState::waiting){
                 shp->run();
                 return ;
             }
-            shp->taskState = TaskState::fail;
+            shp->mTaskState = TaskState::fail;
             if (shp->nextOnFail) shp->nextTask = shp->nextOnFail;
             if (shp->onFail) shp->onFail();
             shp->mEndTime = std::chrono::system_clock::now();
+        };
+    }
+    //get wrapper around complex reply with logging
+    auto getOnReply() {
+        auto shared = QEnableSharedFromThis<SimpleReplyTask<TReply...>>::sharedFromThis();
+        auto weak = shared.toWeakRef();
+        return [weak](auto ...var) mutable{
+            if (!weak){
+                qCritical() << "Current ReplyTask was deleted before recieving the answer";
+                return;
+            }
+            onReply(std::move(weak.toStrongRef()), std::forward<decltype(var)>(var)...);
         };
     }
     template <typename ...BindingArgs>
@@ -136,19 +135,44 @@ explicit SimpleReplyTask(const QString& name): SimpleTask(name){
 private:
     int maximumTries{1};
     int tries{0};
-
+    bool runWithDelay(){
+        if (!mTimerContext){
+            onLog(QString("Task :%1 can't be launched, no timer context").arg(mName));
+            return false;
+        }
+        mTaskState = TaskState::waiting;
+        auto shared = QEnableSharedFromThis<SimpleReplyTask<TReply...>>::sharedFromThis();
+        auto weak = shared.toWeakRef();
+        QTimer::singleShot(mTimeToDelay, mTimerContext, [weak](){
+            if (!weak) return;
+            auto sh = weak.toStrongRef();
+            if (sh->mTaskState == TaskState::waiting) sh->runner();
+            else sh->onLog(QStringLiteral("Task: ") + sh->mName + QStringLiteral(" - forced to stop"));
+        });
+        onLog(QStringLiteral("Task: ") +
+              this->mName +
+              QStringLiteral(" - launched with delay %1 msec").arg(mTimeToDelay.count()));
+        return true;
+    }
     template <typename ...ReplyArgs>
     static void onReply(Shp<SimpleReplyTask<ReplyArgs...>>&& shp, bool success, TReply&&... data){    //TODO work on remove the copying
         if (success){
             auto&& onSuccess = shp->getOnSuccess();
-            onSuccess(std::forward<TReply...>(data...));
+            onSuccess(std::forward<TReply>(data)...);
+            if (shp->mTaskState != TaskState::success){
+                shp->tries++;
+                if (shp->tries < shp->maximumTries){
+                    shp->run();
+                    return;
+                }
+                shp->mTaskState = TaskState::fail;
+            }
         }
         else{
             auto&& onFail = shp->getOnFail();
             onFail();
         }
     }
-
 };
 
 }

@@ -12,7 +12,6 @@ void SimulClusterTask::runSimultaneously(){
 }
 
 void SimulClusterTask::runWithInterval(){
-    //auto timer = new QTimer(mIntervalTimerContext);
     auto shp = sharedFromThis();
     mTimer->connect(mTimer, &QTimer::timeout, mTimer, [weakCluster = shp.toWeakRef()](){
         if (!weakCluster){ return;} //timer stop?
@@ -50,14 +49,14 @@ bool SimulClusterTask::run(){
     //
     mStartTime = std::chrono::system_clock::now();
     if (!startTask){
-        onLog(QString("Task: ") + this->name + QString(" - can't be launched, nothing to execute"));
+        onLog(QStringLiteral("TaskCluster: ") + this->mName + QStringLiteral(" - can't be launched, nothing to execute"));
         mEndTime = mStartTime = std::chrono::system_clock::now();
         return false;
     }
     if (mHasDelay){
         if (!mTimerContext){
-            onLog(QString("Task: '%1' can't be launched with interval, no qobject context for timer"));
-             taskState = TaskState::fail;
+            onLog(QStringLiteral("TaskCluster: '%1' can't be launched with delay, no context for timer").arg(this->mName));
+            mTaskState = TaskState::fail;
             return false;
         }
         QTimer::singleShot(mTimeToDelay, Qt::PreciseTimer, mTimerContext, [=](){
@@ -68,9 +67,9 @@ bool SimulClusterTask::run(){
                 runWithInterval();
             }
         });
-        onLog(QString("Task: '") +
-              this->name +
-              QString(" - launched with delay %1 msec").arg(mTimeToDelay.count()));
+        onLog(QStringLiteral("TaskCluster: ") +
+              this->mName +
+              QStringLiteral(" - launched with delay %1 msec").arg(mTimeToDelay.count()));
     }
     else{
         if (mInterval.count() == 0){
@@ -79,23 +78,19 @@ bool SimulClusterTask::run(){
         else{
             runWithInterval();
         }
-        onLog(QString("Task: '") +
-              this->name +
-              QString(" - launched").arg(mTimeToDelay.count()));
+        onLog(QStringLiteral("TaskCluster: '") +
+              this->mName +
+              QStringLiteral("' - launched with delay %1 msec").arg(mTimeToDelay.count()));
     }
-    taskState = TaskState::waiting;
+    mTaskState = TaskState::waiting;
     return true;
 }
 
 bool SimulClusterTask::checkForReady(){
-    //    int waitCount = 0;
-    //    int sucCount = 0;
-    //    int fCount = 0;
     auto cur = startTask;
     bool isReady{cur->getState() == TaskState::success};
     while (cur){
         auto&& taskState = cur->getState();
-        //qDebug() << Q_FUNC_INFO << cur->getName() << static_cast<int>(taskState);
         if (taskState == TaskState::waiting || taskState == TaskState::idle){
         isReady &= false;
         }

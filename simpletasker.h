@@ -55,9 +55,8 @@ public:
         last->nextTask = tasks.first();
     }
     ShpSimpleTask getStartTask() const{
-
         return mStartTask;}
-    ShpSimpleTask getCurTask() {return mCurTask;}
+    ShpSimpleTask getCurTask() const {return mCurTask;}
     template <class T>
     SimpleTasker& operator << (T&& taskData){
         add(std::forward<T>(taskData));

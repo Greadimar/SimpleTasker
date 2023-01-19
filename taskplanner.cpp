@@ -1,9 +1,9 @@
 #include "taskplanner.h"
 #include <unordered_set>
 using namespace ST;
-ShpSimpleTask TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &tasks){
-    if (tasks.isEmpty()) return nullptr;
-    if (tasks.size() < 2) return tasks.first();
+SimpleBranch TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &tasks){
+    if (tasks.isEmpty()) return {nullptr, nullptr};
+    if (tasks.size() < 2) return {tasks.first(), tasks.first()};
     auto it = tasks.begin();
     auto curTask = *it;
     it++;
@@ -15,21 +15,21 @@ ShpSimpleTask TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &task
         curTask = nextTask;
         it++;
     }
-    return tasks.first();
+    return {tasks.first(), tasks.last()};
 }
 
-ShpSimpleTask TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &firstPart, const QVector<ShpSimpleTask> &secondPart){
-    if (firstPart.isEmpty() || secondPart.isEmpty()) return nullptr;
-    if (!firstPart.last() || !secondPart.first()) return nullptr;
+SimpleBranch TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &firstPart, const QVector<ShpSimpleTask> &secondPart){
+    if (firstPart.isEmpty() || secondPart.isEmpty()) return {nullptr, nullptr};
+    if (!firstPart.last() || !secondPart.first()) return {nullptr, nullptr};
     firstPart.last()->nextTask = secondPart.first();
-    return firstPart.first();
+    return {firstPart.first(), secondPart.last()};
 }
 
-ShpSimpleTask TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &firstPart, const ShpSimpleTask &secondPart){
-    if (firstPart.isEmpty()) return nullptr;
-    if (!firstPart.last() || !secondPart) return nullptr;
+SimpleBranch TaskPlanner::bindCoherentBranch(const QVector<ShpSimpleTask> &firstPart, const ShpSimpleTask &secondPart){
+    if (firstPart.isEmpty()) return {nullptr, nullptr};
+    if (!firstPart.last() || !secondPart) return {nullptr, nullptr};
     firstPart.last()->nextTask = secondPart;
-    return firstPart.first();
+    return {firstPart.first(), secondPart};
 }
 
 ShpSimpleTask TaskPlanner::getLast(const ShpSimpleTask &target){
@@ -41,25 +41,25 @@ ShpSimpleTask TaskPlanner::getLast(const ShpSimpleTask &target){
     return cur;
 }
 
-ShpSimpleTask TaskPlanner::bindCoherentBranch(const ShpSimpleTask &firstPart, const QVector<ShpSimpleTask> &secondPart){
-    if (secondPart.isEmpty()) return nullptr;
-    if (!firstPart || !secondPart.first()) return nullptr;
+SimpleBranch TaskPlanner::bindCoherentBranch(const ShpSimpleTask &firstPart, const QVector<ShpSimpleTask> &secondPart){
+    if (secondPart.isEmpty()) return {nullptr, nullptr};
+    if (!firstPart || !secondPart.first()) return {nullptr, nullptr};
     auto cur = firstPart;
     while (cur->nextTask){
         cur = cur->nextTask;
     }
     cur->nextTask = secondPart.first();
-    return firstPart;
+    return {firstPart, secondPart.last()};
 }
 
-ShpSimpleTask TaskPlanner::bindCoherentBranch(const ShpSimpleTask &firstPart, const ShpSimpleTask &secondPart){
-    if (!firstPart || !secondPart) return nullptr;
+SimpleBranch TaskPlanner::bindCoherentBranch(const ShpSimpleTask &firstPart, const ShpSimpleTask &secondPart){
+    if (!firstPart || !secondPart) return {nullptr, nullptr};
     auto cur = firstPart;
     while (cur->nextTask){
         cur = cur->nextTask;
     }
     cur->nextTask = secondPart;
-    return firstPart;
+    return {firstPart, secondPart};
 }
 
 QSharedPointer<SimulClusterTask> TaskPlanner::buildSimulCluster(const QVector<ShpSimpleTask> &tasks, const QString &name){
@@ -104,9 +104,7 @@ int TaskPlanner::calcAllCount(const ShpSimpleTask &head){
         if (loopSet.find(cur) != loopSet.end()) return count;
         loopSet.insert(cur);
         count++;
-        if (cur->nextOnFail){
-            count += calcAllCount(cur->nextOnFail);
-        }
+        //if (cur->)
         cur = cur->nextTask;
 
     }

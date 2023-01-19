@@ -154,7 +154,7 @@ public:
         auto shpC3Simul = makeReplyTasks("c1-3");
         auto shpC4Simul = makeReplyTasks("c1-4");
         auto simulCluster = SimulClusterTask::create(
-                    TaskPlanner::bindCoherentBranch({shpC1Simul, shpC2Simul, shpC3Simul, shpC4Simul})
+                    TaskPlanner::bindCoherentBranch({shpC1Simul, shpC2Simul, shpC3Simul, shpC4Simul}).first
                     , "Cluster C1");
 
         auto pauseC2 = PauseTask::create(std::chrono::milliseconds(400), *qApp, "c2 pause");
@@ -163,10 +163,10 @@ public:
         auto branchC = TaskPlanner::bindCoherentBranch(simulCluster, pauseC2);
 
         //connecting branches
-        shpRt4->nextTask = branchB;
-        shpRt4->nextOnFail = branchC;
+        shpRt4->nextTask = branchB.first;
+        shpRt4->nextOnFail = branchC.first;
 
-        return branchA;
+        return branchA.first;
     }
     ShpSimpleTask makeReplyTasks(QString name){
         auto shpRt = RemoteTask::create(name);

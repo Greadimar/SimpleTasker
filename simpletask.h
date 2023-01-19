@@ -49,6 +49,7 @@ protected:    //for creating purposes
     template <class TBase>
     struct EnableMakeQShared : public TBase {
         template <typename ...Arg> EnableMakeQShared(Arg&&...arg) :TBase(std::forward<Arg>(arg)...) {}    //we use it to make sure that TBase is available for create
+        ~EnableMakeQShared() override{}
     };
 public:
     static QSharedPointer<SimpleTask> create(const QString& name = "unknown task"){
@@ -79,13 +80,13 @@ public:
     bool isDelayedRun() const {return mHasDelay;}
     std::chrono::milliseconds getTimeToDelay() const {return mTimeToDelay;}
     virtual bool checkForReady(){
-        return taskState != TaskState::waiting;
+        return mTaskState != TaskState::waiting;
     }
 protected:
-    explicit SimpleTask(const QString& name = "unknown task");
+    explicit SimpleTask(const QString& name = QStringLiteral("unknown task"));
     QList<TaskLog> serviceMsgs;
-    QString name;
-    TaskState taskState{TaskState::idle};
+    QString mName;
+    TaskState mTaskState{TaskState::idle};
     TaskImportance mImportance{TaskImportance::common};
     using timepoint = TaskTools::timepoint;
     timepoint mStartTime;
@@ -96,7 +97,6 @@ protected:
     std::chrono::milliseconds mTimeToDelay{0};
 
     void onLog(const QString& msg, const TaskLog::TaskLogStatus& status = TaskLog::common){
-        if constexpr (dbgTasks) qDebug() << "ruining" << name;
         serviceMsgs << TaskLog{msg, status};
         if (logEmitter) logEmitter(msg);
     }

@@ -10,7 +10,8 @@ SimpleTasker::SimpleTasker(QObject* parent): QObject(parent)
 void SimpleTasker::run()
 {
     if (!mStartTask){
-        emit infoMsg("Task branch is empty. Work stopped");
+        emit infoMsg(QStringLiteral("Branch of task is empty. Job stopped"));
+        emit finished();
         return;
     }
     toRun();
@@ -19,7 +20,7 @@ void SimpleTasker::run()
 void SimpleTasker::runWithCommonInterval(std::chrono::milliseconds interval)
 {
     if (!mStartTask){
-        emit infoMsg("Task branch is empty. Work stopped");
+        emit infoMsg(QStringLiteral("Branch of task is empty. Job stopped"));
         return;
     }
     this->commonInterval = interval;
@@ -29,7 +30,6 @@ void SimpleTasker::runWithCommonInterval(std::chrono::milliseconds interval)
 template<bool delay>
 void SimpleTasker::toRun()
 {
-    if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO << "run" << QThread::currentThreadId();
     lastPrgSent = 0;
     if (!timer){
         timer = new QTimer(this);
@@ -49,8 +49,8 @@ void SimpleTasker::toRun()
 
 
 void SimpleTasker::stop(){
-    if constexpr(dbgTasker) qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
     taskerState = TaskerState::idle;
+    if (mCurTask) mCurTask->setState(TaskState::fail);
     if (timer) timer->stop();
     emit sendPrg(0);
     emit canceled();
@@ -58,13 +58,13 @@ void SimpleTasker::stop(){
 }
 void SimpleTasker::toPause()
 {
-    if constexpr(dbgTasker) qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
+    if (mCurTask) mCurTask->setState(TaskState::idle);
     if (timer) timer->stop();
 }
 
 void SimpleTasker::toContinue()
 {
-    if constexpr(dbgTasker) qDebug() <<Q_FUNC_INFO << QThread::currentThreadId();
+    if (mCurTask) mCurTask->setState(TaskState::idle);
     if (timer) timer->start(checkNextTimeout);
 }
 
@@ -107,7 +107,6 @@ void SimpleTasker::runCoherentTask(ShpSimpleTask &task)
         toFinish();
         return;
     }
-    //emit infoMsg("Задача: %1")
     if (!task->logEmitter) task->logEmitter = [=](const QString& msg){
         emit infoMsg(msg);
     };
@@ -124,7 +123,6 @@ void SimpleTasker::runCoherentTask(ShpSimpleTask &task)
 template <bool interval>
 void SimpleTasker::checkForNextTask()
 {
-    if constexpr(dbgTasker) qDebug() << Q_FUNC_INFO <<"checkFN"<< QThread::currentThreadId() << QTime::currentTime();
     if constexpr (interval){
         auto now = std::chrono::system_clock::now();
         if (timePointLastCheck + std::chrono::milliseconds(commonInterval) > now){

@@ -24,7 +24,7 @@ public:
 
 protected:
     explicit PauseTask(const std::chrono::milliseconds& pausetime, QObject &contextForTimer,
-                       const QString& name = "pause");
+                       const QString& name = QStringLiteral("pause"));
     virtual ~PauseTask() override{
     }
 private:
