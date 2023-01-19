@@ -3,15 +3,20 @@
 #include "taskcluster.h"
 
 namespace ST {
+struct SimpleBranch{
+    bool isValid(){return first.isNull() || last.isNull();}
+    ShpSimpleTask first;
+    ShpSimpleTask last;
+};
 class TaskPlanner
 {
 public:
-    static ShpSimpleTask bindCoherentBranch(const QVector<ShpSimpleTask>& tasks);
-    static ShpSimpleTask bindCoherentBranch(const QVector<ShpSimpleTask>& firstPart, const QVector<ShpSimpleTask>& secondPart);
-    static ShpSimpleTask bindCoherentBranch(const QVector<ShpSimpleTask>& firstPart, const ShpSimpleTask& secondPart);
+    static SimpleBranch bindCoherentBranch(const QVector<ShpSimpleTask>& tasks);
+    static SimpleBranch bindCoherentBranch(const QVector<ShpSimpleTask>& firstPart, const QVector<ShpSimpleTask>& secondPart);
+    static SimpleBranch bindCoherentBranch(const QVector<ShpSimpleTask>& firstPart, const ShpSimpleTask& secondPart);
     static ShpSimpleTask getLast(const ShpSimpleTask& target);
-    static ShpSimpleTask bindCoherentBranch(const ShpSimpleTask& firstPart, const QVector<ShpSimpleTask>& secondPart);
-    static ShpSimpleTask bindCoherentBranch(const ShpSimpleTask& firstPart, const ShpSimpleTask& secondPart);
+    static SimpleBranch bindCoherentBranch(const ShpSimpleTask& firstPart, const QVector<ShpSimpleTask>& secondPart);
+    static SimpleBranch bindCoherentBranch(const ShpSimpleTask& firstPart, const ShpSimpleTask& secondPart);
     static QSharedPointer<SimulClusterTask> buildSimulCluster(const QVector<ShpSimpleTask>& tasks,
                                                     const QString& name);
     static bool insertAfter(ShpSimpleTask previous, ShpSimpleTask target);

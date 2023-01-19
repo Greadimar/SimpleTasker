@@ -1,7 +1,7 @@
 !contains(DEFINES, __SIMPLETASKER__) {
 DEFINES += __SIMPLETASKER__
 
-CONFIG += c++17 #switch to c++14 if you don't need if constexpr
+CONFIG += c++17
 
 HEADERS += \
     $$PWD/pausetask.h \
@@ -13,6 +13,7 @@ HEADERS += \
     $$PWD/tasktools.h \
     $$PWD/taskplanner.h
 
+
 SOURCES += \
     $$PWD/pausetask.cpp \
     $$PWD/simplereplytask.cpp \
@@ -21,4 +22,3 @@ SOURCES += \
     $$PWD/taskcluster.cpp \
     $$PWD/taskplanner.cpp
 }
-

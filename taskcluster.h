@@ -12,7 +12,7 @@ class SimulClusterTask: public SimpleTask, public QEnableSharedFromThis<SimulClu
         template <typename ...Arg> EnableMakeQShared(Arg&&...arg) :TBase(std::forward<Arg>(arg)...) {}    //we use it to make sure that TBase
     };
 private:
-    SimulClusterTask(const ShpSimpleTask& firstInSimulBranch, const QString& name = "Кластер одновременных задач"): SimpleTask(name),
+    SimulClusterTask(const ShpSimpleTask& firstInSimulBranch, const QString& name = "Cluster of simult tasks"): SimpleTask(name),
          startTask(firstInSimulBranch)
         {curTask = startTask;}
     SimulClusterTask(SimulClusterTask const&) = default;
@@ -26,7 +26,7 @@ private:
     ShpSimpleTask curTask{nullptr};
 public:
     static QSharedPointer<SimulClusterTask> create(const ShpSimpleTask& firstInSimulBranch,
-                                                  const QString& name = "Кластер одновременных задач"){
+                                                  const QString& name = "Cluster of simult tasks"){
         return QSharedPointer<EnableMakeQShared<SimulClusterTask>>::create(firstInSimulBranch, name);
     }
     void setInterval(QObject* timerContext, std::chrono::milliseconds interval);
